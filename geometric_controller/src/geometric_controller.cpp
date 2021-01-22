@@ -80,8 +80,8 @@ void geometricCtrl::getTargetFromTrajectory2(const mav_msgs::EigenTrajectoryPoin
     //Eigen::Quaterniond q(pt.transforms[0].rotation.w, pt.transforms[0].rotation.x, pt.transforms[0].rotation.y, pt.transforms[0].rotation.z);
     desiredOrientation = command_trajectory.orientation_W_B;
     desiredYaw = desiredOrientation.z();
-    //rpy = Eigen::Matrix3d(desiredOrientation).eulerAngles(0, 1, 2); // RPY
-    //mavYaw_ = rpy(2);
+    rpy = Eigen::Matrix3d(desiredOrientation).eulerAngles(0, 1, 2); // RPY
+    mavYaw_ = rpy(2);
   }
 
   // Originale.
@@ -327,7 +327,7 @@ void geometricCtrl::cmdloopCallback(const ros::TimerEvent &event)
       cmdloop_timer_.setPeriod(ros::Duration(0.01));
       cmdloop_timer_.start();
       desiredYaw = 0;
-      mavYaw_ = 0;
+      //mavYaw_ = 0;
     }
 
     errorPos_ = mavPos_ - targetPos_;
@@ -419,9 +419,8 @@ void geometricCtrl::pubRateCommands()
   angularVelMsg_.orientation.y = 0;
   angularVelMsg_.orientation.z = desiredYaw;
   angularVelMsg_.orientation.w = 1;
-  angularVelMsg_.type_mask = 0; //Use orientation messages
-
-  //angularVelMsg_.type_mask = 128; //Ignore orientation messages
+  //angularVelMsg_.type_mask = 0; //Use orientation messages
+  angularVelMsg_.type_mask = 128; //Ignore orientation messages
   angularVelMsg_.thrust = cmdBodyRate_(3);
   angularVelPub_.publish(angularVelMsg_);
 }

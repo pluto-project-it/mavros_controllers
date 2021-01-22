@@ -53,7 +53,7 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   nh_private_.param<double>("Kv_z", Kvel_z_, 3.3);
   nh_private_.param<int>("posehistory_window", posehistory_window_, 200);
 
-  targetPos_ << 0.0, 0.0, 0.0; //Initial Position
+  targetPos_ << 0.0, 0.0, 0.5; //Initial Position
   targetVel_ << 0.0, 0.0, 0.0;
   g_ << 0.0, 0.0, -9.8;
   Kpos_ << -Kpos_x_, -Kpos_y_, -Kpos_z_;
@@ -73,12 +73,32 @@ void geometricCtrl::getTargetFromTrajectory2(const mav_msgs::EigenTrajectoryPoin
   targetVel_ = command_trajectory.velocity_W;
   targetAcc_ = command_trajectory.acceleration_W;
 
+  Eigen::Vector3d rpy;
+
+  if (!velocity_yaw_)
+  {
+    //Eigen::Quaterniond q(pt.transforms[0].rotation.w, pt.transforms[0].rotation.x, pt.transforms[0].rotation.y, pt.transforms[0].rotation.z);
+    desiredOrientation = command_trajectory.orientation_W_B;
+    desiredYaw = desiredOrientation.z();
+    rpy = Eigen::Matrix3d(desiredOrientation).eulerAngles(0, 1, 2); // RPY
+    mavYaw_ = rpy(2);
+  }
+
+  // Originale.
+  // if(!velocity_yaw_){
+  //   Eigen::Quaterniond q(pt.transforms[0].rotation.w, pt.transforms[0].rotation.x, pt.transforms[0].rotation.y, pt.transforms[0].rotation.z);
+  //   Eigen::Vector3d rpy = Eigen::Matrix3d(q).eulerAngles(0,1,2); // RPY
+  //   mavYaw_ = rpy(2);
+  // }
+
   // targetPos_ << command_trajectory.position_W(2), command_trajectory.position_W(1), command_trajectory.position_W(0);
   // targetVel_ << command_trajectory.velocity_W(2), command_trajectory.velocity_W(1), command_trajectory.velocity_W(0);
   // targetAcc_ << command_trajectory.acceleration_W(2), command_trajectory.acceleration_W(1), command_trajectory.acceleration_W(0);
   targetJerk_ << 0.0, 0.0, 0.0;
   targetSnap_ << 0.0, 0.0, 0.0;
-  ROS_INFO_STREAM("tpos:" << targetPos_ << "TVAL:" << targetVel_ << "tacc:" << targetAcc_);
+
+  ROS_INFO("tpos:%f %f %f tvel:%f %f %f tacc:%f %f %f tyaw: %f", targetPos_(0), targetPos_(1), targetPos_(2), targetVel_(0), targetVel_(1), targetVel_(2),
+           targetAcc_(0), targetAcc_(1), targetAcc_(2), desiredYaw);
 }
 
 void geometricCtrl::getTargetFromTrajectory(const trajectory_msgs::MultiDOFJointTrajectory &msg)
@@ -281,15 +301,18 @@ void geometricCtrl::cmdloopCallback(const ros::TimerEvent &event)
     node_state = MISSION_EXECUTION;
     break;
   case MISSION_EXECUTION:
+    cmdloop_timer_.stop();
     if (!commands_.empty())
     {
-      cmdloop_timer_.stop();
       const mav_msgs::EigenTrajectoryPoint eigen_reference = commands_.front();
       getTargetFromTrajectory2(commands_.front());
       commands_.pop_front();
       if (!command_waiting_times_.empty())
       {
-        cmdloop_timer_.setPeriod(command_waiting_times_.front());
+        if (command_waiting_times_.size() == 1)
+          cmdloop_timer_.setPeriod(ros::Duration(0.01));
+        else
+          cmdloop_timer_.setPeriod(command_waiting_times_.front());
         command_waiting_times_.pop_front();
         cmdloop_timer_.start();
       }
@@ -299,10 +322,13 @@ void geometricCtrl::cmdloopCallback(const ros::TimerEvent &event)
         cmdloop_timer_.start();
       }
     }
-
-    //getTargetFromTrajectory2(commands_.front());
-    //lee_position_controller_.SetTrajectoryPoint(commands_.front());
-    //commands_.pop_front();
+    else
+    {
+      cmdloop_timer_.setPeriod(ros::Duration(0.01));
+      cmdloop_timer_.start();
+      desiredYaw = 0;
+      mavYaw_ = 0;
+    }
 
     errorPos_ = mavPos_ - targetPos_;
     errorVel_ = mavVel_ - targetVel_;
@@ -389,7 +415,13 @@ void geometricCtrl::pubRateCommands()
   angularVelMsg_.body_rate.x = cmdBodyRate_(0);
   angularVelMsg_.body_rate.y = cmdBodyRate_(1);
   angularVelMsg_.body_rate.z = cmdBodyRate_(2);
-  angularVelMsg_.type_mask = 128; //Ignore orientation messages
+  angularVelMsg_.orientation.x = 0;
+  angularVelMsg_.orientation.y = 0;
+  angularVelMsg_.orientation.z = desiredYaw;
+  angularVelMsg_.orientation.w = 1;
+  angularVelMsg_.type_mask = 0; //Use orientation messages
+
+  //angularVelMsg_.type_mask = 128; //Ignore orientation messages
   angularVelMsg_.thrust = cmdBodyRate_(3);
   angularVelPub_.publish(angularVelMsg_);
 }

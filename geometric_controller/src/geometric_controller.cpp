@@ -53,7 +53,7 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   nh_private_.param<double>("Kv_z", Kvel_z_, 3.3);
   nh_private_.param<int>("posehistory_window", posehistory_window_, 200);
 
-  targetPos_ << 0.0, 0.0, 0.5; //Initial Position
+  targetPos_ << 0.0, 0.0, 0.0; //Initial Position
   targetVel_ << 0.0, 0.0, 0.0;
   g_ << 0.0, 0.0, -9.8;
   Kpos_ << -Kpos_x_, -Kpos_y_, -Kpos_z_;
@@ -80,8 +80,8 @@ void geometricCtrl::getTargetFromTrajectory2(const mav_msgs::EigenTrajectoryPoin
     //Eigen::Quaterniond q(pt.transforms[0].rotation.w, pt.transforms[0].rotation.x, pt.transforms[0].rotation.y, pt.transforms[0].rotation.z);
     desiredOrientation = command_trajectory.orientation_W_B;
     desiredYaw = desiredOrientation.z();
-    rpy = Eigen::Matrix3d(desiredOrientation).eulerAngles(0, 1, 2); // RPY
-    mavYaw_ = rpy(2);
+    //rpy = Eigen::Matrix3d(desiredOrientation).eulerAngles(0, 1, 2); // RPY
+    //mavYaw_ = rpy(2);
   }
 
   // Originale.

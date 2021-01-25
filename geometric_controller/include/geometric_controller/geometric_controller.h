@@ -129,7 +129,7 @@ private:
   ros::ServiceClient set_mode_client_;
   ros::ServiceServer ctrltriggerServ_;
   ros::ServiceServer land_service_;
-  ros::Timer cmdloop_timer_, statusloop_timer_;
+  ros::Timer cmdloop_timer_, statusloop_timer_, trajectory_timer;
   ros::Time last_request_, reference_request_now_, reference_request_last_;
   ros::Time refstart_time_;
 
@@ -201,6 +201,7 @@ private:
   geometry_msgs::PoseStamped vector3d2PoseStampedMsg(Eigen::Vector3d &position, Eigen::Vector4d &orientation);
 
   Eigen::Quaterniond desiredOrientation;
+  void trajectoryLoopCallback(const ros::TimerEvent &event);
 
   enum FlightState
   {

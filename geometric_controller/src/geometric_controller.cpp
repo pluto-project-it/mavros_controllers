@@ -22,8 +22,9 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   mavposeSub_ = nh_.subscribe("/mavros/local_position/pose", 1, &geometricCtrl::mavposeCallback, this, ros::TransportHints().tcpNoDelay());
   mavtwistSub_ = nh_.subscribe("/mavros/local_position/velocity_local", 1, &geometricCtrl::mavtwistCallback, this, ros::TransportHints().tcpNoDelay());
   ctrltriggerServ_ = nh_.advertiseService("tigger_rlcontroller", &geometricCtrl::ctrltriggerCallback, this);
-  cmdloop_timer_ = nh_.createTimer(ros::Duration(0.01), &geometricCtrl::cmdloopCallback, this);    // Define timer for constant loop rate
-  statusloop_timer_ = nh_.createTimer(ros::Duration(1), &geometricCtrl::statusloopCallback, this); // Define timer for constant loop rate
+  cmdloop_timer_ = nh_.createTimer(ros::Duration(0.01), &geometricCtrl::cmdloopCallback, this);          // Define timer for constant loop rate
+  statusloop_timer_ = nh_.createTimer(ros::Duration(1), &geometricCtrl::statusloopCallback, this);       // Define timer for constant loop rate
+  trajectory_timer = nh_.createTimer(ros::Duration(0.01), &geometricCtrl::trajectoryLoopCallback, this); // Define timer for trajectory elaboration.
 
   angularVelPub_ = nh_.advertise<mavros_msgs::AttitudeTarget>("command/bodyrate_command", 1);
   referencePosePub_ = nh_.advertise<geometry_msgs::PoseStamped>("reference/pose", 1);
@@ -77,11 +78,11 @@ void geometricCtrl::getTargetFromTrajectory2(const mav_msgs::EigenTrajectoryPoin
 
   if (!velocity_yaw_)
   {
-    //Eigen::Quaterniond q(pt.transforms[0].rotation.w, pt.transforms[0].rotation.x, pt.transforms[0].rotation.y, pt.transforms[0].rotation.z);
     desiredOrientation = command_trajectory.orientation_W_B;
-    //mavYaw_ = desiredOrientation.z();
 
-    //desiredYaw = desiredOrientation.z();
+    // Originale che usa il messaggio mavros MultiDOFJointTrajectoryPoint.
+    //Eigen::Quaterniond q(pt.transforms[0].rotation.w, pt.transforms[0].rotation.x, pt.transforms[0].rotation.y, pt.transforms[0].rotation.z);
+
     // rpy = Eigen::Matrix3d(desiredOrientation).eulerAngles(0, 1, 2); // RPY
     // mavYaw_ = rpy(2);
   }
@@ -217,7 +218,7 @@ void geometricCtrl::multiDOFJointCallback(const trajectory_msgs::MultiDOFJointTr
   ROS_INFO_STREAM("MultiDOFJointTrajectory received. Points n: " << msg.points.size());
 
   // Clear all pending commands.
-  cmdloop_timer_.stop();
+  trajectory_timer.stop();
   commands_.clear();
   command_waiting_times_.clear();
 
@@ -245,18 +246,13 @@ void geometricCtrl::multiDOFJointCallback(const trajectory_msgs::MultiDOFJointTr
   }
 
   // We can trigger the first command immediately.
-  //this->getTargetFromTrajectory2(commands_.front());
-  //lee_position_controller_.SetTrajectoryPoint(commands_.front());
-  //commands_.pop_front();
-  // if (n_commands > 1)
-  // {
-  //   cmdloop_timer_.setPeriod(command_waiting_times_.front());
-  //   command_waiting_times_.pop_front();
-  //   cmdloop_timer_.start();
-  // }
-
-  cmdloop_timer_.setPeriod(command_waiting_times_.front());
-  cmdloop_timer_.start();
+  commands_.pop_front();
+  if (n_commands > 1)
+  {
+    trajectory_timer.setPeriod(command_waiting_times_.front());
+    command_waiting_times_.pop_front();
+    trajectory_timer.start();
+  }
 }
 
 void geometricCtrl::mavposeCallback(const geometry_msgs::PoseStamped &msg)
@@ -292,6 +288,31 @@ bool geometricCtrl::landCallback(std_srvs::SetBool::Request &request, std_srvs::
   node_state = LANDING;
 }
 
+void geometricCtrl::trajectoryLoopCallback(const ros::TimerEvent &event)
+{
+  if (!commands_.empty())
+  {
+    trajectory_timer.stop();
+    const mav_msgs::EigenTrajectoryPoint eigen_reference = commands_.front();
+    getTargetFromTrajectory2(commands_.front());
+    commands_.pop_front();
+    if (!command_waiting_times_.empty())
+    {
+      if (command_waiting_times_.size() == 1)
+        trajectory_timer.setPeriod(ros::Duration(0.01));
+      else
+        trajectory_timer.setPeriod(command_waiting_times_.front());
+      command_waiting_times_.pop_front();
+      trajectory_timer.start();
+    }
+    else
+    {
+      trajectory_timer.setPeriod(ros::Duration(0.01));
+      trajectory_timer.start();
+    }
+  }
+}
+
 void geometricCtrl::cmdloopCallback(const ros::TimerEvent &event)
 {
   switch (node_state)
@@ -302,38 +323,8 @@ void geometricCtrl::cmdloopCallback(const ros::TimerEvent &event)
     node_state = MISSION_EXECUTION;
     break;
   case MISSION_EXECUTION:
-    cmdloop_timer_.stop();
-    if (!commands_.empty())
-    {
-      const mav_msgs::EigenTrajectoryPoint eigen_reference = commands_.front();
-      getTargetFromTrajectory2(commands_.front());
-      commands_.pop_front();
-      if (!command_waiting_times_.empty())
-      {
-        if (command_waiting_times_.size() == 1)
-          cmdloop_timer_.setPeriod(ros::Duration(0.01));
-        else
-          cmdloop_timer_.setPeriod(command_waiting_times_.front());
-        command_waiting_times_.pop_front();
-        cmdloop_timer_.start();
-      }
-      else
-      {
-        cmdloop_timer_.setPeriod(ros::Duration(0.01));
-        cmdloop_timer_.start();
-      }
-    }
-    else
-    {
-      cmdloop_timer_.setPeriod(ros::Duration(0.01));
-      cmdloop_timer_.start();
-      //desiredYaw = 0;
-      //mavYaw_ = 0;
-    }
-
     errorPos_ = mavPos_ - targetPos_;
     errorVel_ = mavVel_ - targetVel_;
-
     if (!feedthrough_enable_)
       computeBodyRateCmd(false);
     //pubReferencePose();

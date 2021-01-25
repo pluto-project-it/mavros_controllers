@@ -99,10 +99,7 @@ void geometricCtrl::getTargetFromTrajectory2(const mav_msgs::EigenTrajectoryPoin
   targetJerk_ << 0.0, 0.0, 0.0;
   targetSnap_ << 0.0, 0.0, 0.0;
 
-  ROS_INFO("tpos:%f %f %f tyaw: %f", targetPos_(0), targetPos_(1), targetPos_(2), desiredOrientation.z());
-
-  // ROS_INFO("tpos:%f %f %f tvel:%f %f %f tacc:%f %f %f tyaw: %f", targetPos_(0), targetPos_(1), targetPos_(2), targetVel_(0), targetVel_(1), targetVel_(2),
-  //          targetAcc_(0), targetAcc_(1), targetAcc_(2), desiredOrientation.z());
+  //ROS_INFO("tpos:%f %f %f tyaw: %f", targetPos_(0), targetPos_(1), targetPos_(2), desiredOrientation.z());
 }
 
 void geometricCtrl::getTargetFromTrajectory(const trajectory_msgs::MultiDOFJointTrajectory &msg)
@@ -339,10 +336,10 @@ void geometricCtrl::cmdloopCallback(const ros::TimerEvent &event)
 
     if (!feedthrough_enable_)
       computeBodyRateCmd(false);
-    pubReferencePose();
+    //pubReferencePose();
     pubRateCommands();
-    appendPoseHistory();
-    pubPoseHistory();
+    //appendPoseHistory();
+    //pubPoseHistory();
     break;
   case LANDING:
   {

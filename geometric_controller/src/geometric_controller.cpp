@@ -79,9 +79,11 @@ void geometricCtrl::getTargetFromTrajectory2(const mav_msgs::EigenTrajectoryPoin
   {
     //Eigen::Quaterniond q(pt.transforms[0].rotation.w, pt.transforms[0].rotation.x, pt.transforms[0].rotation.y, pt.transforms[0].rotation.z);
     desiredOrientation = command_trajectory.orientation_W_B;
-    desiredYaw = desiredOrientation.z();
-    rpy = Eigen::Matrix3d(desiredOrientation).eulerAngles(0, 1, 2); // RPY
-    mavYaw_ = rpy(2);
+    //mavYaw_ = desiredOrientation.z();
+
+    //desiredYaw = desiredOrientation.z();
+    // rpy = Eigen::Matrix3d(desiredOrientation).eulerAngles(0, 1, 2); // RPY
+    // mavYaw_ = rpy(2);
   }
 
   // Originale.
@@ -97,8 +99,10 @@ void geometricCtrl::getTargetFromTrajectory2(const mav_msgs::EigenTrajectoryPoin
   targetJerk_ << 0.0, 0.0, 0.0;
   targetSnap_ << 0.0, 0.0, 0.0;
 
-  ROS_INFO("tpos:%f %f %f tvel:%f %f %f tacc:%f %f %f tyaw: %f", targetPos_(0), targetPos_(1), targetPos_(2), targetVel_(0), targetVel_(1), targetVel_(2),
-           targetAcc_(0), targetAcc_(1), targetAcc_(2), desiredYaw);
+  ROS_INFO("tpos:%f %f %f tyaw: %f", targetPos_(0), targetPos_(1), targetPos_(2), desiredOrientation.z());
+
+  // ROS_INFO("tpos:%f %f %f tvel:%f %f %f tacc:%f %f %f tyaw: %f", targetPos_(0), targetPos_(1), targetPos_(2), targetVel_(0), targetVel_(1), targetVel_(2),
+  //          targetAcc_(0), targetAcc_(1), targetAcc_(2), desiredOrientation.z());
 }
 
 void geometricCtrl::getTargetFromTrajectory(const trajectory_msgs::MultiDOFJointTrajectory &msg)
@@ -326,7 +330,7 @@ void geometricCtrl::cmdloopCallback(const ros::TimerEvent &event)
     {
       cmdloop_timer_.setPeriod(ros::Duration(0.01));
       cmdloop_timer_.start();
-      desiredYaw = 0;
+      //desiredYaw = 0;
       //mavYaw_ = 0;
     }
 
@@ -415,12 +419,13 @@ void geometricCtrl::pubRateCommands()
   angularVelMsg_.body_rate.x = cmdBodyRate_(0);
   angularVelMsg_.body_rate.y = cmdBodyRate_(1);
   angularVelMsg_.body_rate.z = cmdBodyRate_(2);
-  angularVelMsg_.orientation.x = 0;
-  angularVelMsg_.orientation.y = 0;
-  angularVelMsg_.orientation.z = desiredYaw;
-  angularVelMsg_.orientation.w = 1;
-  //angularVelMsg_.type_mask = 0; //Use orientation messages
-  angularVelMsg_.type_mask = 128; //Ignore orientation messages
+  angularVelMsg_.orientation.x = desiredOrientation.x();
+  angularVelMsg_.orientation.y = desiredOrientation.y();
+  angularVelMsg_.orientation.z = desiredOrientation.z();
+  angularVelMsg_.orientation.w = desiredOrientation.w();
+  // angularVelMsg_.orientation.z = desiredYaw;
+  angularVelMsg_.type_mask = 0; //Use orientation messages
+  //angularVelMsg_.type_mask = 128; //Ignore orientation messages
   angularVelMsg_.thrust = cmdBodyRate_(3);
   angularVelPub_.publish(angularVelMsg_);
 }

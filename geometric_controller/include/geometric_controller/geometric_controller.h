@@ -201,7 +201,6 @@ private:
   geometry_msgs::PoseStamped vector3d2PoseStampedMsg(Eigen::Vector3d &position, Eigen::Vector4d &orientation);
 
   Eigen::Quaterniond desiredOrientation;
-  double desiredYaw;
 
   enum FlightState
   {

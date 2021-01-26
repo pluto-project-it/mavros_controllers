@@ -14,9 +14,9 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
                                                                                              node_state(WAITING_FOR_HOME_POSE)
 {
 
-  referenceSub_ = nh_.subscribe("reference/setpoint", 1, &geometricCtrl::targetCallback, this, ros::TransportHints().tcpNoDelay());
-  flatreferenceSub_ = nh_.subscribe("reference/flatsetpoint", 1, &geometricCtrl::flattargetCallback, this, ros::TransportHints().tcpNoDelay());
-  yawreferenceSub_ = nh_.subscribe("reference/yaw", 1, &geometricCtrl::yawtargetCallback, this, ros::TransportHints().tcpNoDelay());
+  // referenceSub_ = nh_.subscribe("reference/setpoint", 1, &geometricCtrl::targetCallback, this, ros::TransportHints().tcpNoDelay());
+  // flatreferenceSub_ = nh_.subscribe("reference/flatsetpoint", 1, &geometricCtrl::flattargetCallback, this, ros::TransportHints().tcpNoDelay());
+  // yawreferenceSub_ = nh_.subscribe("reference/yaw", 1, &geometricCtrl::yawtargetCallback, this, ros::TransportHints().tcpNoDelay());
   multiDOFJointSub_ = nh_.subscribe("/command/trajectory", 1, &geometricCtrl::multiDOFJointCallback, this, ros::TransportHints().tcpNoDelay());
   mavstateSub_ = nh_.subscribe("/mavros/state", 1, &geometricCtrl::mavstateCallback, this, ros::TransportHints().tcpNoDelay());
   mavposeSub_ = nh_.subscribe("/mavros/local_position/pose", 1, &geometricCtrl::mavposeCallback, this, ros::TransportHints().tcpNoDelay());
@@ -24,11 +24,11 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   ctrltriggerServ_ = nh_.advertiseService("tigger_rlcontroller", &geometricCtrl::ctrltriggerCallback, this);
   cmdloop_timer_ = nh_.createTimer(ros::Duration(0.01), &geometricCtrl::cmdloopCallback, this);          // Define timer for constant loop rate
   statusloop_timer_ = nh_.createTimer(ros::Duration(1), &geometricCtrl::statusloopCallback, this);       // Define timer for constant loop rate
-  trajectory_timer = nh_.createTimer(ros::Duration(0.01), &geometricCtrl::trajectoryLoopCallback, this); // Define timer for trajectory elaboration.
+  trajectory_timer = nh_.createTimer(ros::Duration(0.02), &geometricCtrl::trajectoryLoopCallback, this); // Define timer for trajectory elaboration.
 
   angularVelPub_ = nh_.advertise<mavros_msgs::AttitudeTarget>("command/bodyrate_command", 1);
   referencePosePub_ = nh_.advertise<geometry_msgs::PoseStamped>("reference/pose", 1);
-  target_pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
+  //target_pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
   posehistoryPub_ = nh_.advertise<nav_msgs::Path>("/geometric_controller/path", 10);
   systemstatusPub_ = nh_.advertise<mavros_msgs::CompanionProcessStatus>("/mavros/companion_process/status", 1);
   arming_client_ = nh_.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
@@ -54,7 +54,7 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   nh_private_.param<double>("Kv_z", Kvel_z_, 3.3);
   nh_private_.param<int>("posehistory_window", posehistory_window_, 200);
 
-  targetPos_ << 0.0, 0.0, 0.0; //Initial Position
+  targetPos_ << 0.0, 0.0, 1.0; //Initial Position
   targetVel_ << 0.0, 0.0, 0.0;
   g_ << 0.0, 0.0, -9.8;
   Kpos_ << -Kpos_x_, -Kpos_y_, -Kpos_z_;
@@ -298,18 +298,18 @@ void geometricCtrl::trajectoryLoopCallback(const ros::TimerEvent &event)
     commands_.pop_front();
     if (!command_waiting_times_.empty())
     {
-      if (command_waiting_times_.size() == 1)
-        trajectory_timer.setPeriod(ros::Duration(0.01));
-      else
-        trajectory_timer.setPeriod(command_waiting_times_.front());
+      // if (command_waiting_times_.size() == 1)
+      //   trajectory_timer.setPeriod(ros::Duration(0.01));
+      // else
+      trajectory_timer.setPeriod(command_waiting_times_.front());
       command_waiting_times_.pop_front();
       trajectory_timer.start();
     }
-    else
-    {
-      trajectory_timer.setPeriod(ros::Duration(0.01));
-      trajectory_timer.start();
-    }
+    // else
+    // {
+    //   trajectory_timer.setPeriod(ros::Duration(0.01));
+    //   trajectory_timer.start();
+    // }
   }
 }
 
@@ -325,6 +325,8 @@ void geometricCtrl::cmdloopCallback(const ros::TimerEvent &event)
   case MISSION_EXECUTION:
     errorPos_ = mavPos_ - targetPos_;
     errorVel_ = mavVel_ - targetVel_;
+    // if(targetPos_(2) < 0.5)
+    //   ROS_INFO("TargetPos z < 0.5: %f", targetPos_(2));
     if (!feedthrough_enable_)
       computeBodyRateCmd(false);
     //pubReferencePose();

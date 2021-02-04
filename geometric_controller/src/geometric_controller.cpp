@@ -671,5 +671,5 @@ void geometricCtrl::dynamicReconfigureCallback(geometric_controller::GeometricCo
   }
 
   Kpos_ << -Kpos_x_, -Kpos_y_, -Kpos_z_;
-  Kvel_ << -Kvel_x_, -Kvel_z_, -Kvel_z_;
+  Kvel_ << -Kvel_x_, -Kvel_y_, -Kvel_z_;
 }

@@ -53,13 +53,13 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   nh_private_.param<double>("Kv_y", Kvel_y_, 1.5);
   nh_private_.param<double>("Kv_z", Kvel_z_, 3.3);
   nh_private_.param<int>("posehistory_window", posehistory_window_, 200);
+  nh_private_.param<double>("initial_position_z", initial_position_z_, 1.5);
 
-  targetPos_ << 0.0, 0.0, 0.0; //Initial Position
+  //targetPos_ << 0.0, 0.0, 0.0; //Initial Position
+  targetPos_ << 0.0, 0.0, initial_position_z_; //Initial Position
   targetVel_ << 0.0, 0.0, 0.0;
   g_ << 0.0, 0.0, -9.8;
   Kpos_ << -Kpos_x_, -Kpos_y_, -Kpos_z_;
-  //Nell'originale è un errore o è voluto?
-  //Kvel_ << -Kvel_x_, -Kvel_z_, -Kvel_z_;
   Kvel_ << -Kvel_x_, -Kvel_y_, -Kvel_z_;
   D_ << dx_, dy_, dz_;
 

@@ -130,14 +130,15 @@ private:
   ros::ServiceServer ctrltriggerServ_;
   ros::ServiceServer land_service_;
   ros::Timer cmdloop_timer_, statusloop_timer_, trajectory_timer;
-  ros::Time last_request_, reference_request_now_, reference_request_last_;
+  ros::Time arm_last_request_, offboard_last_request_, reference_request_now_, reference_request_last_;
   ros::Time refstart_time_;
 
   string mav_name_;
   bool fail_detec_, ctrl_enable_, feedthrough_enable_;
   int ctrl_mode_;
   bool landing_commanded_;
-  bool sim_enable_, use_dob_;
+  //bool sim_enable_, use_dob_;
+  bool enable_offboard_, enable_arm_;
   bool velocity_yaw_;
   bool follow_reftrajectory_;
   double kp_rot_, kd_rot_;

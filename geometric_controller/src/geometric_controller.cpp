@@ -22,9 +22,9 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   mavposeSub_ = nh_.subscribe("/mavros/local_position/pose", 1, &geometricCtrl::mavposeCallback, this, ros::TransportHints().tcpNoDelay());
   mavtwistSub_ = nh_.subscribe("/mavros/local_position/velocity_local", 1, &geometricCtrl::mavtwistCallback, this, ros::TransportHints().tcpNoDelay());
   ctrltriggerServ_ = nh_.advertiseService("tigger_rlcontroller", &geometricCtrl::ctrltriggerCallback, this);
-  cmdloop_timer_ = nh_.createTimer(ros::Duration(0.01), &geometricCtrl::cmdloopCallback, this);          // Define timer for constant loop rate
-  statusloop_timer_ = nh_.createTimer(ros::Duration(1), &geometricCtrl::statusloopCallback, this);       // Define timer for constant loop rate
-  trajectory_timer = nh_.createTimer(ros::Duration(0.02), &geometricCtrl::trajectoryLoopCallback, this); // Define timer for trajectory elaboration.
+  cmdloop_timer_ = nh_.createTimer(ros::Duration(0.01), &geometricCtrl::cmdloopCallback, this);         // Define timer for constant loop rate
+  statusloop_timer_ = nh_.createTimer(ros::Duration(1), &geometricCtrl::statusloopCallback, this);      // Define timer for status loop rate
+  trajectory_timer = nh_.createTimer(ros::Duration(0.1), &geometricCtrl::trajectoryLoopCallback, this); // Define timer for trajectory elaboration.
 
   angularVelPub_ = nh_.advertise<mavros_msgs::AttitudeTarget>("command/bodyrate_command", 1);
   referencePosePub_ = nh_.advertise<geometry_msgs::PoseStamped>("reference/pose", 1);
@@ -37,7 +37,9 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
 
   nh_private_.param<string>("mavname", mav_name_, "iris");
   nh_private_.param<int>("ctrl_mode", ctrl_mode_, MODE_BODYRATE);
-  nh_private_.param<bool>("enable_sim", sim_enable_, true);
+  //nh_private_.param<bool>("enable_sim", sim_enable_, true);
+  nh_private_.param<bool>("enable_offboard", enable_offboard_, false);
+  nh_private_.param<bool>("enable_arm", enable_arm_, false);
   nh_private_.param<bool>("velocity_yaw", velocity_yaw_, false);
   nh_private_.param<double>("max_acc", max_fb_acc_, 7.0);
   nh_private_.param<double>("yaw_heading", mavYaw_, 0.0);
@@ -55,7 +57,6 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   nh_private_.param<int>("posehistory_window", posehistory_window_, 200);
   nh_private_.param<double>("initial_position_z", initial_position_z_, 1.5);
 
-  //targetPos_ << 0.0, 0.0, 0.0; //Initial Position
   targetPos_ << 0.0, 0.0, initial_position_z_; //Initial Position
   targetVel_ << 0.0, 0.0, 0.0;
   g_ << 0.0, 0.0, -9.8;
@@ -361,32 +362,62 @@ void geometricCtrl::mavstateCallback(const mavros_msgs::State::ConstPtr &msg)
 
 void geometricCtrl::statusloopCallback(const ros::TimerEvent &event)
 {
-  if (sim_enable_)
+  //Auto-arming.
+  if (enable_arm_)
   {
-    // Enable OFFBoard mode and arm automatically
-    // This is only run if the vehicle is simulated
-    arm_cmd_.request.value = true;
-    offb_set_mode_.request.custom_mode = "OFFBOARD";
-    if (current_state_.mode != "OFFBOARD" && (ros::Time::now() - last_request_ > ros::Duration(5.0)))
+    if (!current_state_.armed && current_state_.mode == "OFFBOARD" && (ros::Time::now() - arm_last_request_ > ros::Duration(5.0)))
     {
+      arm_cmd_.request.value = true;
+      if (arming_client_.call(arm_cmd_) && arm_cmd_.response.success)
+      {
+        ROS_INFO("Vehicle armed");
+      }
+      arm_last_request_ = ros::Time::now();
+    }
+  }
+
+  //Auto-OFFBOARD.
+  if (enable_offboard_)
+  {
+    if (current_state_.mode != "OFFBOARD" && (ros::Time::now() - offboard_last_request_ > ros::Duration(5.0)))
+    {
+      offb_set_mode_.request.custom_mode = "OFFBOARD";
       if (set_mode_client_.call(offb_set_mode_) && offb_set_mode_.response.mode_sent)
       {
         ROS_INFO("Offboard enabled");
       }
-      last_request_ = ros::Time::now();
-    }
-    else
-    {
-      if (!current_state_.armed && (ros::Time::now() - last_request_ > ros::Duration(5.0)))
-      {
-        if (arming_client_.call(arm_cmd_) && arm_cmd_.response.success)
-        {
-          ROS_INFO("Vehicle armed");
-        }
-        last_request_ = ros::Time::now();
-      }
+      offboard_last_request_ = ros::Time::now();
     }
   }
+
+  //Originale
+  // if (sim_enable_)
+  // {
+  //   // Enable OFFBoard mode and arm automatically
+  //   // This is only run if the vehicle is simulated
+  //   arm_cmd_.request.value = true;
+  //   offb_set_mode_.request.custom_mode = "OFFBOARD";
+  //   if (current_state_.mode != "OFFBOARD" && (ros::Time::now() - last_request_ > ros::Duration(5.0)))
+  //   {
+  //     if (set_mode_client_.call(offb_set_mode_) && offb_set_mode_.response.mode_sent)
+  //     {
+  //       ROS_INFO("Offboard enabled");
+  //     }
+  //     last_request_ = ros::Time::now();
+  //   }
+  //   else
+  //   {
+  //     if (!current_state_.armed && (ros::Time::now() - last_request_ > ros::Duration(5.0)))
+  //     {
+  //       if (arming_client_.call(arm_cmd_) && arm_cmd_.response.success)
+  //       {
+  //         ROS_INFO("Vehicle armed");
+  //       }
+  //       last_request_ = ros::Time::now();
+  //     }
+  //   }
+  //}
+
   pubSystemStatus();
 }
 

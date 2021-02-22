@@ -330,10 +330,10 @@ void geometricCtrl::cmdloopCallback(const ros::TimerEvent &event)
     errorVel_ = mavVel_ - targetVel_;
     // if(targetPos_(2) < 0.5)
     //   ROS_INFO("TargetPos z < 0.5: %f", targetPos_(2));
-    if (!feedthrough_enable_)
-      computeBodyRateCmd(false);
-    //pubReferencePose();
-    pubRateCommands();
+    // if (!feedthrough_enable_)
+    //   computeBodyRateCmd(false);
+    pubReferencePose();
+    //pubRateCommands();
     //appendPoseHistory();
     //pubPoseHistory();
     break;

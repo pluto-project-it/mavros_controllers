@@ -428,10 +428,10 @@ void geometricCtrl::pubReferencePose()
   referencePoseMsg_.pose.position.x = targetPos_(0);
   referencePoseMsg_.pose.position.y = targetPos_(1);
   referencePoseMsg_.pose.position.z = targetPos_(2);
-  referencePoseMsg_.pose.orientation.w = q_des(0);
-  referencePoseMsg_.pose.orientation.x = q_des(1);
-  referencePoseMsg_.pose.orientation.y = q_des(2);
-  referencePoseMsg_.pose.orientation.z = q_des(3);
+  referencePoseMsg_.pose.orientation.x = desiredOrientation.x();
+  referencePoseMsg_.pose.orientation.y = desiredOrientation.y();
+  referencePoseMsg_.pose.orientation.z = desiredOrientation.z();
+  referencePoseMsg_.pose.orientation.w = desiredOrientation.w();  
   referencePosePub_.publish(referencePoseMsg_);
 }
 
